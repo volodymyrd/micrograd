@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 petgraph = { path = "/Users/vova/work/workspace/petgraph" }
+uuid = { version = "1.13.1", features = ["v4"] }

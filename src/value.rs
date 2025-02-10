@@ -13,11 +13,12 @@ use std::rc::Rc;
 
 #[derive(Debug, Clone)]
 pub struct Value {
+    pub label: String,
     uuid: uuid::Uuid,
     data: f64,
+    grad: f64,
     prev: HashSet<Rc<Value>>,
     op: Option<char>,
-    pub label: String,
 }
 
 #[derive(Debug, Clone)]
@@ -44,7 +45,10 @@ pub fn print_computation_graph(root: Rc<Value>, output_path: Option<&str>) -> St
     let mut node_map = HashMap::with_capacity(value_graph.nodes.len());
     for node in &value_graph.nodes {
         let _node_id = graph.add_node(NodeData::new(
-            format!("{{ {} | data {} }}", node.label, node.data),
+            format!(
+                "{{ {} | data {} | grad {} }}",
+                node.label, node.data, node.grad
+            ),
             "record".to_string(),
         ));
         node_map.insert(node.uuid.to_string(), _node_id);
@@ -125,11 +129,12 @@ fn dot_to_svg(dot: &str, output_path: &str) {
 impl Value {
     pub fn new(data: f64, label: String) -> Self {
         Self {
+            label,
             uuid: uuid::Uuid::new_v4(),
             data,
+            grad: 0.0,
             prev: HashSet::new(),
             op: None,
-            label,
         }
     }
 }
@@ -145,11 +150,12 @@ impl Add for Value {
 
     fn add(self, rhs: Self) -> Self::Output {
         Self {
+            label: "".to_string(),
             uuid: uuid::Uuid::new_v4(),
             data: self.data + rhs.data,
+            grad: 0.0,
             prev: vec![Rc::new(self), Rc::new(rhs)].into_iter().collect(),
             op: Some('+'),
-            label: "".to_string(),
         }
     }
 }
@@ -159,11 +165,12 @@ impl Mul for Value {
 
     fn mul(self, rhs: Self) -> Self::Output {
         Self {
+            label: "".to_string(),
             uuid: uuid::Uuid::new_v4(),
             data: self.data * rhs.data,
+            grad: 0.0,
             prev: vec![Rc::new(self), Rc::new(rhs)].into_iter().collect(),
             op: Some('*'),
-            label: "".to_string(),
         }
     }
 }
@@ -252,16 +259,16 @@ mod tests {
             print_computation_graph(Rc::new(l), None),
             r#"digraph {
     rankdir="LR"
-    0 [ label = "NodeData { label: \"{ L | data -8 }\", shape: \"record\" }" label="{ L | data -8 }" shape=record]
+    0 [ label = "NodeData { label: \"{ L | data -8 | grad 0 }\", shape: \"record\" }" label="{ L | data -8 | grad 0 }" shape=record]
     1 [ label = "NodeData { label: \"*\", shape: \"circle\" }" label="*" shape=circle]
-    2 [ label = "NodeData { label: \"{ e | data -6 }\", shape: \"record\" }" label="{ e | data -6 }" shape=record]
+    2 [ label = "NodeData { label: \"{ e | data -6 | grad 0 }\", shape: \"record\" }" label="{ e | data -6 | grad 0 }" shape=record]
     3 [ label = "NodeData { label: \"*\", shape: \"circle\" }" label="*" shape=circle]
-    4 [ label = "NodeData { label: \"{ b | data -3 }\", shape: \"record\" }" label="{ b | data -3 }" shape=record]
-    5 [ label = "NodeData { label: \"{ f | data -2 }\", shape: \"record\" }" label="{ f | data -2 }" shape=record]
-    6 [ label = "NodeData { label: \"{ a | data 2 }\", shape: \"record\" }" label="{ a | data 2 }" shape=record]
-    7 [ label = "NodeData { label: \"{ d | data 4 }\", shape: \"record\" }" label="{ d | data 4 }" shape=record]
+    4 [ label = "NodeData { label: \"{ b | data -3 | grad 0 }\", shape: \"record\" }" label="{ b | data -3 | grad 0 }" shape=record]
+    5 [ label = "NodeData { label: \"{ f | data -2 | grad 0 }\", shape: \"record\" }" label="{ f | data -2 | grad 0 }" shape=record]
+    6 [ label = "NodeData { label: \"{ a | data 2 | grad 0 }\", shape: \"record\" }" label="{ a | data 2 | grad 0 }" shape=record]
+    7 [ label = "NodeData { label: \"{ d | data 4 | grad 0 }\", shape: \"record\" }" label="{ d | data 4 | grad 0 }" shape=record]
     8 [ label = "NodeData { label: \"+\", shape: \"circle\" }" label="+" shape=circle]
-    9 [ label = "NodeData { label: \"{ c | data 10 }\", shape: \"record\" }" label="{ c | data 10 }" shape=record]
+    9 [ label = "NodeData { label: \"{ c | data 10 | grad 0 }\", shape: \"record\" }" label="{ c | data 10 | grad 0 }" shape=record]
     1 -> 0 [ ]
     3 -> 2 [ ]
     8 -> 7 [ ]

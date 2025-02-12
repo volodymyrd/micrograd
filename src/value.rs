@@ -127,14 +127,20 @@ fn dot_to_svg(dot: &str, output_path: &str) {
 }
 
 impl Value {
-    pub fn new(data: f64, label: String) -> Self {
+    pub fn new(
+        data: f64,
+        label: String,
+        grad: f64,
+        prev: HashSet<Rc<Value>>,
+        op: Option<char>,
+    ) -> Self {
         Self {
             label,
             uuid: uuid::Uuid::new_v4(),
             data,
-            grad: 0.0,
-            prev: HashSet::new(),
-            op: None,
+            grad,
+            prev,
+            op,
         }
     }
 }
@@ -149,14 +155,14 @@ impl Add for Value {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        Self {
-            label: "".to_string(),
-            uuid: uuid::Uuid::new_v4(),
-            data: self.data + rhs.data,
-            grad: 0.0,
-            prev: vec![Rc::new(self), Rc::new(rhs)].into_iter().collect(),
-            op: Some('+'),
-        }
+        let mut out = Self::new(
+            self.data + rhs.data,
+            "".to_string(),
+            0.0,
+            vec![Rc::new(self), Rc::new(rhs)].into_iter().collect(),
+            Some('+'),
+        );
+        out
     }
 }
 
@@ -164,14 +170,13 @@ impl Mul for Value {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        Self {
-            label: "".to_string(),
-            uuid: uuid::Uuid::new_v4(),
-            data: self.data * rhs.data,
-            grad: 0.0,
-            prev: vec![Rc::new(self), Rc::new(rhs)].into_iter().collect(),
-            op: Some('*'),
-        }
+        Self::new(
+            self.data * rhs.data,
+            "".to_string(),
+            0.0,
+            vec![Rc::new(self), Rc::new(rhs)].into_iter().collect(),
+            Some('*'),
+        )
     }
 }
 
@@ -244,14 +249,14 @@ mod tests {
 
     #[test]
     fn test_print_computation_graph() {
-        let a = Value::new(2.0, "a".to_string());
-        let b = Value::new(-3.0, "b".to_string());
-        let c = Value::new(10.0, "c".to_string());
+        let a = Value::new(2.0, "a".to_string(), 0.0, HashSet::new(), None);
+        let b = Value::new(-3.0, "b".to_string(), 0.0, HashSet::new(), None);
+        let c = Value::new(10.0, "c".to_string(), 0.0, HashSet::new(), None);
         let mut e = a * b; // 6.0
         e.label = "e".to_string();
         let mut d = e + c;
         d.label = "d".to_string();
-        let f = Value::new(-2.0, "f".to_string());
+        let f = Value::new(-2.0, "f".to_string(), 0.0, HashSet::new(), None);
         let mut l = d * f;
         l.label = "L".to_string();
 

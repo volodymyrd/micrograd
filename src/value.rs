@@ -4,14 +4,14 @@ use petgraph::graph::NodeIndex;
 use petgraph::Graph;
 use std::cmp::Ordering;
 use std::collections::{BTreeSet, HashMap, HashSet};
-use std::fmt::{Display, Formatter, Result};
+use std::fmt::{Debug, Display, Formatter, Result};
 use std::fs::write;
 use std::hash::{Hash, Hasher};
 use std::ops::{Add, Mul};
 use std::process::Command;
 use std::rc::Rc;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Value {
     pub label: String,
     uuid: uuid::Uuid,
@@ -145,6 +145,11 @@ impl Value {
     }
 }
 
+impl Debug for Value {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "{}:{}", self.label, self.data)
+    }
+}
 impl Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "data={}", self.data)
@@ -155,14 +160,13 @@ impl Add for Value {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        let mut out = Self::new(
+        Self::new(
             self.data + rhs.data,
             "".to_string(),
             0.0,
             vec![Rc::new(self), Rc::new(rhs)].into_iter().collect(),
             Some('+'),
-        );
-        out
+        )
     }
 }
 
@@ -224,14 +228,10 @@ impl PartialOrd for Value {
 impl Ord for Value {
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
-        #[allow(clippy::comparison_chain)]
-        if self < other {
-            Ordering::Less
-        } else if self > other {
-            Ordering::Greater
-        } else {
-            Ordering::Equal
-        }
+        self.data
+            .partial_cmp(&other.data)
+            .unwrap_or(Ordering::Equal) // Handle NaN safely
+            .then_with(|| self.uuid.cmp(&other.uuid))
     }
 }
 

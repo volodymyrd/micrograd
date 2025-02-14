@@ -150,6 +150,7 @@ impl Debug for Value {
         write!(f, "{}:{}", self.label, self.data)
     }
 }
+
 impl Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "data={}", self.data)
@@ -163,7 +164,7 @@ impl Add for Value {
         Self::new(
             self.data + rhs.data,
             "".to_string(),
-            0.0,
+            1.0,
             vec![Rc::new(self), Rc::new(rhs)].into_iter().collect(),
             Some('+'),
         )
@@ -177,7 +178,7 @@ impl Mul for Value {
         Self::new(
             self.data * rhs.data,
             "".to_string(),
-            0.0,
+            1.0,
             vec![Rc::new(self), Rc::new(rhs)].into_iter().collect(),
             Some('*'),
         )
@@ -264,14 +265,14 @@ mod tests {
             print_computation_graph(Rc::new(l), None),
             r#"digraph {
     rankdir="LR"
-    0 [ label = "NodeData { label: \"{ L | data -8 | grad 0 }\", shape: \"record\" }" label="{ L | data -8 | grad 0 }" shape=record]
+    0 [ label = "NodeData { label: \"{ L | data -8 | grad 1 }\", shape: \"record\" }" label="{ L | data -8 | grad 1 }" shape=record]
     1 [ label = "NodeData { label: \"*\", shape: \"circle\" }" label="*" shape=circle]
-    2 [ label = "NodeData { label: \"{ e | data -6 | grad 0 }\", shape: \"record\" }" label="{ e | data -6 | grad 0 }" shape=record]
+    2 [ label = "NodeData { label: \"{ e | data -6 | grad 1 }\", shape: \"record\" }" label="{ e | data -6 | grad 1 }" shape=record]
     3 [ label = "NodeData { label: \"*\", shape: \"circle\" }" label="*" shape=circle]
     4 [ label = "NodeData { label: \"{ b | data -3 | grad 0 }\", shape: \"record\" }" label="{ b | data -3 | grad 0 }" shape=record]
     5 [ label = "NodeData { label: \"{ f | data -2 | grad 0 }\", shape: \"record\" }" label="{ f | data -2 | grad 0 }" shape=record]
     6 [ label = "NodeData { label: \"{ a | data 2 | grad 0 }\", shape: \"record\" }" label="{ a | data 2 | grad 0 }" shape=record]
-    7 [ label = "NodeData { label: \"{ d | data 4 | grad 0 }\", shape: \"record\" }" label="{ d | data 4 | grad 0 }" shape=record]
+    7 [ label = "NodeData { label: \"{ d | data 4 | grad 1 }\", shape: \"record\" }" label="{ d | data 4 | grad 1 }" shape=record]
     8 [ label = "NodeData { label: \"+\", shape: \"circle\" }" label="+" shape=circle]
     9 [ label = "NodeData { label: \"{ c | data 10 | grad 0 }\", shape: \"record\" }" label="{ c | data 10 | grad 0 }" shape=record]
     1 -> 0 [ ]

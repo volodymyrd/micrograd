@@ -2,11 +2,9 @@ use petgraph::dot::RankDir::LR;
 use petgraph::dot::{Config, Dot};
 use petgraph::graph::NodeIndex;
 use petgraph::Graph;
-use std::cmp::Ordering;
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Display, Formatter, Result};
 use std::fs::write;
-use std::hash::{Hash, Hasher};
 use std::ops::{Add, Mul};
 use std::process::Command;
 use std::rc::Rc;
@@ -17,14 +15,14 @@ pub struct Value {
     uuid: uuid::Uuid,
     data: f64,
     grad: f64,
-    prev: HashSet<Rc<Value>>,
+    prev: Vec<Rc<Value>>,
     op: Option<char>,
 }
 
 #[derive(Debug, Clone)]
 struct ValueGraph {
-    nodes: BTreeSet<Rc<Value>>,
-    edges: BTreeSet<(Rc<Value>, Rc<Value>)>,
+    nodes: Vec<Rc<Value>>,
+    edges: Vec<(Rc<Value>, Rc<Value>)>,
 }
 
 #[derive(Debug, Clone)]
@@ -91,22 +89,25 @@ pub fn print_computation_graph(root: Rc<Value>, output_path: Option<&str>) -> St
 
 /// Build a set of all nodes and edges in a graph.
 fn trace(root: Rc<Value>) -> ValueGraph {
-    let mut nodes = BTreeSet::new();
-    let mut edges = BTreeSet::new();
+    let mut nodes = vec![];
+    let mut edges = vec![];
+    let mut visited = HashSet::new();
     fn build(
         v: Rc<Value>,
-        nodes: &mut BTreeSet<Rc<Value>>,
-        edges: &mut BTreeSet<(Rc<Value>, Rc<Value>)>,
+        nodes: &mut Vec<Rc<Value>>,
+        edges: &mut Vec<(Rc<Value>, Rc<Value>)>,
+        visited: &mut HashSet<uuid::Uuid>,
     ) {
-        if !nodes.contains(&v) {
-            nodes.insert(Rc::clone(&v));
+        if !visited.contains(&v.uuid) {
+            visited.insert(v.uuid);
+            nodes.push(Rc::clone(&v));
             for child in &v.prev {
-                edges.insert((Rc::clone(child), Rc::clone(&v)));
-                build(Rc::clone(child), nodes, edges);
+                edges.push((Rc::clone(child), Rc::clone(&v)));
+                build(Rc::clone(child), nodes, edges, visited);
             }
         }
     }
-    build(root, &mut nodes, &mut edges);
+    build(root, &mut nodes, &mut edges, &mut visited);
     ValueGraph { nodes, edges }
 }
 
@@ -131,7 +132,7 @@ impl Value {
         data: f64,
         label: String,
         grad: f64,
-        prev: HashSet<Rc<Value>>,
+        prev: Vec<Rc<Value>>,
         op: Option<char>,
     ) -> Self {
         Self {
@@ -185,64 +186,6 @@ impl Mul for Value {
     }
 }
 
-impl PartialEq for Value {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        self.uuid == other.uuid
-    }
-}
-
-impl Eq for Value {}
-
-impl PartialOrd for Value {
-    #[inline]
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-
-    #[inline]
-    fn lt(&self, other: &Self) -> bool {
-        !self.data.ge(&other.data)
-    }
-
-    #[inline]
-    fn le(&self, other: &Self) -> bool {
-        other.data.ge(&self.data)
-    }
-
-    #[inline]
-    fn gt(&self, other: &Self) -> bool {
-        !other.data.ge(&self.data)
-    }
-
-    #[inline]
-    fn ge(&self, other: &Self) -> bool {
-        // We consider all NaNs equal, and NaN is the largest possible
-        // value. Thus if self is NaN we always return true. Otherwise
-        // self >= other is correct. If other is also not NaN it is trivially
-        // correct, and if it is we note that nothing can be greater or
-        // equal to NaN except NaN itself, which we already handled earlier.
-        self.data.is_nan() | (self.data >= other.data)
-    }
-}
-
-impl Ord for Value {
-    #[inline]
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.data
-            .partial_cmp(&other.data)
-            .unwrap_or(Ordering::Equal) // Handle NaN safely
-            .then_with(|| self.uuid.cmp(&other.uuid))
-    }
-}
-
-impl Hash for Value {
-    #[inline]
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.uuid.hash(state);
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -250,14 +193,14 @@ mod tests {
 
     #[test]
     fn test_print_computation_graph() {
-        let a = Value::new(2.0, "a".to_string(), 0.0, HashSet::new(), None);
-        let b = Value::new(-3.0, "b".to_string(), 0.0, HashSet::new(), None);
-        let c = Value::new(10.0, "c".to_string(), 0.0, HashSet::new(), None);
+        let a = Value::new(2.0, "a".to_string(), 0.0, vec![], None);
+        let b = Value::new(-3.0, "b".to_string(), 0.0, vec![], None);
+        let c = Value::new(10.0, "c".to_string(), 0.0, vec![], None);
         let mut e = a * b; // 6.0
         e.label = "e".to_string();
         let mut d = e + c;
         d.label = "d".to_string();
-        let f = Value::new(-2.0, "f".to_string(), 0.0, HashSet::new(), None);
+        let f = Value::new(-2.0, "f".to_string(), 0.0, vec![], None);
         let mut l = d * f;
         l.label = "L".to_string();
 
@@ -267,23 +210,23 @@ mod tests {
     rankdir="LR"
     0 [ label = "NodeData { label: \"{ L | data -8 | grad 1 }\", shape: \"record\" }" label="{ L | data -8 | grad 1 }" shape=record]
     1 [ label = "NodeData { label: \"*\", shape: \"circle\" }" label="*" shape=circle]
-    2 [ label = "NodeData { label: \"{ e | data -6 | grad 1 }\", shape: \"record\" }" label="{ e | data -6 | grad 1 }" shape=record]
-    3 [ label = "NodeData { label: \"*\", shape: \"circle\" }" label="*" shape=circle]
-    4 [ label = "NodeData { label: \"{ b | data -3 | grad 0 }\", shape: \"record\" }" label="{ b | data -3 | grad 0 }" shape=record]
-    5 [ label = "NodeData { label: \"{ f | data -2 | grad 0 }\", shape: \"record\" }" label="{ f | data -2 | grad 0 }" shape=record]
+    2 [ label = "NodeData { label: \"{ d | data 4 | grad 1 }\", shape: \"record\" }" label="{ d | data 4 | grad 1 }" shape=record]
+    3 [ label = "NodeData { label: \"+\", shape: \"circle\" }" label="+" shape=circle]
+    4 [ label = "NodeData { label: \"{ e | data -6 | grad 1 }\", shape: \"record\" }" label="{ e | data -6 | grad 1 }" shape=record]
+    5 [ label = "NodeData { label: \"*\", shape: \"circle\" }" label="*" shape=circle]
     6 [ label = "NodeData { label: \"{ a | data 2 | grad 0 }\", shape: \"record\" }" label="{ a | data 2 | grad 0 }" shape=record]
-    7 [ label = "NodeData { label: \"{ d | data 4 | grad 1 }\", shape: \"record\" }" label="{ d | data 4 | grad 1 }" shape=record]
-    8 [ label = "NodeData { label: \"+\", shape: \"circle\" }" label="+" shape=circle]
-    9 [ label = "NodeData { label: \"{ c | data 10 | grad 0 }\", shape: \"record\" }" label="{ c | data 10 | grad 0 }" shape=record]
+    7 [ label = "NodeData { label: \"{ b | data -3 | grad 0 }\", shape: \"record\" }" label="{ b | data -3 | grad 0 }" shape=record]
+    8 [ label = "NodeData { label: \"{ c | data 10 | grad 0 }\", shape: \"record\" }" label="{ c | data 10 | grad 0 }" shape=record]
+    9 [ label = "NodeData { label: \"{ f | data -2 | grad 0 }\", shape: \"record\" }" label="{ f | data -2 | grad 0 }" shape=record]
     1 -> 0 [ ]
     3 -> 2 [ ]
-    8 -> 7 [ ]
-    2 -> 8 [ ]
+    5 -> 4 [ ]
+    2 -> 1 [ ]
     4 -> 3 [ ]
-    5 -> 1 [ ]
-    6 -> 3 [ ]
-    7 -> 1 [ ]
-    9 -> 8 [ ]
+    6 -> 5 [ ]
+    7 -> 5 [ ]
+    8 -> 3 [ ]
+    9 -> 1 [ ]
 }
 "#
         );

@@ -2,6 +2,7 @@ use petgraph::dot::RankDir::LR;
 use petgraph::dot::{Config, Dot};
 use petgraph::graph::NodeIndex;
 use petgraph::Graph;
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Display, Formatter, Result};
 use std::fs::write;
@@ -15,7 +16,7 @@ pub struct Value {
     uuid: uuid::Uuid,
     data: f64,
     grad: f64,
-    prev: Vec<Rc<Value>>,
+    prev: Vec<Rc<RefCell<Value>>>,
     op: Option<char>,
 }
 
@@ -102,8 +103,9 @@ fn trace(root: Rc<Value>) -> ValueGraph {
             visited.insert(v.uuid);
             nodes.push(Rc::clone(&v));
             for child in &v.prev {
-                edges.push((Rc::clone(child), Rc::clone(&v)));
-                build(Rc::clone(child), nodes, edges, visited);
+                let child = Rc::new(RefCell::take(&child));
+                edges.push((Rc::clone(&child), Rc::clone(&v)));
+                build(Rc::clone(&child), nodes, edges, visited);
             }
         }
     }
@@ -132,7 +134,7 @@ impl Value {
         data: f64,
         label: String,
         grad: f64,
-        prev: Vec<Rc<Value>>,
+        prev: Vec<Rc<RefCell<Value>>>,
         op: Option<char>,
     ) -> Self {
         Self {
@@ -143,6 +145,12 @@ impl Value {
             prev,
             op,
         }
+    }
+}
+
+impl Default for Value {
+    fn default() -> Self {
+        Value::new(0.0, "".to_string(), 0.0, vec![], None)
     }
 }
 
@@ -166,7 +174,9 @@ impl Add for Value {
             self.data + rhs.data,
             "".to_string(),
             1.0,
-            vec![Rc::new(self), Rc::new(rhs)].into_iter().collect(),
+            vec![Rc::new(RefCell::new(self)), Rc::new(RefCell::new(rhs))]
+                .into_iter()
+                .collect(),
             Some('+'),
         )
     }
@@ -180,7 +190,9 @@ impl Mul for Value {
             self.data * rhs.data,
             "".to_string(),
             1.0,
-            vec![Rc::new(self), Rc::new(rhs)].into_iter().collect(),
+            vec![Rc::new(RefCell::new(self)), Rc::new(RefCell::new(rhs))]
+                .into_iter()
+                .collect(),
             Some('*'),
         )
     }

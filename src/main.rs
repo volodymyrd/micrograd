@@ -1,7 +1,9 @@
-use crate::value::{print_computation_graph, Value};
+use crate::value::Value;
+use crate::view::print_computation_graph;
 use std::rc::Rc;
 
 mod value;
+mod view;
 
 fn main() {
     let a = Value::new(2.0, "a".to_string(), 0.0, vec![], None);

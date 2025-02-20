@@ -388,6 +388,32 @@ mod tests {
     }
 
     #[test]
+    fn chain() {
+        let a = Value::new(-2.0);
+        let b = Value::new(3.0);
+        let e = a.clone() + b.clone();
+        let d = a.clone() * b.clone();
+        let f = e.clone() * d.clone();
+
+        f.backward();
+
+        assert_eq!(a.data(), -2.0);
+        assert_eq!(a.grad(), -3.0);
+
+        assert_eq!(b.data(), 3.0);
+        assert_eq!(b.grad(), -8.0);
+
+        assert_eq!(e.data(), 1.0);
+        assert_eq!(e.grad(), -6.0);
+
+        assert_eq!(d.data(), -6.0);
+        assert_eq!(d.grad(), 1.0);
+
+        assert_eq!(f.data(), -6.0);
+        assert_eq!(f.grad(), 1.0);
+    }
+
+    #[test]
     fn tanh() {
         let a = Value::new(0.8814);
         let c = a.tanh();

@@ -128,4 +128,43 @@ mod tests {
 "#
         );
     }
+
+    #[test]
+    fn test_print_computation_graph_after_backward() {
+        let a = Value::new(2.0).with_label("a");
+        let b = Value::new(-3.0).with_label("b");
+        let c = Value::new(10.0).with_label("c");
+        let e = (a * b).with_label("e"); // 6.0
+        let d = (e + c).with_label("d");
+        let f = Value::new(-2.0).with_label("f");
+        let l = (d * f).with_label("L");
+        l.backward();
+
+        assert_eq!(
+            print_computation_graph(&l, None),
+            r#"digraph {
+    rankdir="LR"
+    0 [ label = "NodeData { label: \"{ L | data -8 | grad 1 }\", shape: \"record\" }" label="{ L | data -8 | grad 1 }" shape=record]
+    1 [ label = "NodeData { label: \"*\", shape: \"circle\" }" label="*" shape=circle]
+    2 [ label = "NodeData { label: \"{ d | data 4 | grad -2 }\", shape: \"record\" }" label="{ d | data 4 | grad -2 }" shape=record]
+    3 [ label = "NodeData { label: \"+\", shape: \"circle\" }" label="+" shape=circle]
+    4 [ label = "NodeData { label: \"{ e | data -6 | grad -2 }\", shape: \"record\" }" label="{ e | data -6 | grad -2 }" shape=record]
+    5 [ label = "NodeData { label: \"*\", shape: \"circle\" }" label="*" shape=circle]
+    6 [ label = "NodeData { label: \"{ a | data 2 | grad 6 }\", shape: \"record\" }" label="{ a | data 2 | grad 6 }" shape=record]
+    7 [ label = "NodeData { label: \"{ b | data -3 | grad -4 }\", shape: \"record\" }" label="{ b | data -3 | grad -4 }" shape=record]
+    8 [ label = "NodeData { label: \"{ c | data 10 | grad -2 }\", shape: \"record\" }" label="{ c | data 10 | grad -2 }" shape=record]
+    9 [ label = "NodeData { label: \"{ f | data -2 | grad 4 }\", shape: \"record\" }" label="{ f | data -2 | grad 4 }" shape=record]
+    1 -> 0 [ ]
+    3 -> 2 [ ]
+    5 -> 4 [ ]
+    2 -> 1 [ ]
+    4 -> 3 [ ]
+    6 -> 5 [ ]
+    7 -> 5 [ ]
+    8 -> 3 [ ]
+    9 -> 1 [ ]
+}
+"#
+        );
+    }
 }

@@ -30,6 +30,19 @@ impl Value {
         self
     }
 
+    pub fn backward(&self) {
+        let mut topo = vec![];
+        let mut visited = HashSet::new();
+        build_topo(self, &mut topo, &mut visited);
+
+        self.0.borrow_mut().grad = 1.0;
+        for node in topo.iter().rev() {
+            if let Some(backward) = &node.0.borrow().backward {
+                backward.borrow_mut()();
+            }
+        }
+    }
+
     pub fn uuid(&self) -> Uuid {
         self.0.borrow().uuid
     }
@@ -81,6 +94,16 @@ impl Value {
     }
 }
 
+fn build_topo(v: &Value, topo: &mut Vec<Value>, visited: &mut HashSet<Uuid>) {
+    if !visited.contains(&v.uuid()) {
+        visited.insert(v.uuid());
+        for child in &v.0.borrow().prev {
+            build_topo(child, topo, visited);
+        }
+        topo.push(Value(Rc::clone(&v.0)));
+    }
+}
+
 impl Default for Value {
     fn default() -> Self {
         Value::new_internal(0.0, 0.0, vec![], None, None)
@@ -108,7 +131,24 @@ impl Add for Value {
 
     fn add(self, rhs: Self) -> Self::Output {
         let data = self.0.borrow().data + rhs.0.borrow().data;
-        Self::new_internal(data, 0.0, vec![self, rhs], None, Some(String::from("+")))
+        let lhs_internal = Rc::clone(&self.0);
+        let rhs_internal = Rc::clone(&rhs.0);
+
+        let out = Self::new_internal(data, 0.0, vec![self, rhs], None, Some(String::from("+")));
+        let out_internal = Rc::clone(&out.0);
+
+        let backward = move || {
+            let mut lhs = lhs_internal.borrow_mut();
+            let mut rhs = rhs_internal.borrow_mut();
+            let out_grad = out_internal.borrow().grad;
+            lhs.grad += out_grad;
+            rhs.grad += out_grad;
+        };
+
+        let out_internal = Rc::clone(&out.0);
+        let mut out_internal_mut = out_internal.borrow_mut();
+        out_internal_mut.backward = Some(Rc::new(RefCell::new(backward)));
+        out
     }
 }
 
@@ -117,7 +157,24 @@ impl Mul for Value {
 
     fn mul(self, rhs: Self) -> Self::Output {
         let data = self.0.borrow().data * rhs.0.borrow().data;
-        Self::new_internal(data, 0.0, vec![self, rhs], None, Some(String::from("*")))
+        let lhs_internal = Rc::clone(&self.0);
+        let rhs_internal = Rc::clone(&rhs.0);
+
+        let out = Self::new_internal(data, 0.0, vec![self, rhs], None, Some(String::from("*")));
+        let out_internal = Rc::clone(&out.0);
+
+        let backward = move || {
+            let mut lhs = lhs_internal.borrow_mut();
+            let mut rhs = rhs_internal.borrow_mut();
+            let out_grad = out_internal.borrow().grad;
+            lhs.grad += rhs.data * out_grad;
+            rhs.grad += lhs.data * out_grad;
+        };
+
+        let out_internal = Rc::clone(&out.0);
+        let mut out_internal_mut = out_internal.borrow_mut();
+        out_internal_mut.backward = Some(Rc::new(RefCell::new(backward)));
+        out
     }
 }
 
@@ -164,6 +221,7 @@ struct InternalValue {
     prev: Vec<Value>,
     label: Option<String>,
     op: Option<String>,
+    backward: Option<Rc<RefCell<dyn FnMut()>>>,
 }
 
 impl InternalValue {
@@ -175,12 +233,13 @@ impl InternalValue {
         op: Option<String>,
     ) -> Self {
         Self {
-            uuid: uuid::Uuid::new_v4(),
+            uuid: Uuid::new_v4(),
             data,
             grad,
             prev,
             label,
             op,
+            backward: None,
         }
     }
 }

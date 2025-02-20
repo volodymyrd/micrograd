@@ -12,8 +12,6 @@ fn main() {
     let d = (e + c).with_label("d");
     let f = Value::new(-2.0).with_label("f");
     let l = (d * f).with_label("L");
-    println!(
-        "{}",
-        print_computation_graph(&l, Some("micrograd.svg"))
-    );
+    l.backward();
+    println!("{}", print_computation_graph(&l, Some("micrograd.svg")));
 }

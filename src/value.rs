@@ -167,8 +167,16 @@ impl Mul for Value {
             let mut lhs = lhs_internal.borrow_mut();
             let mut rhs = rhs_internal.borrow_mut();
             let out_grad = out_internal.borrow().grad;
-            lhs.grad += rhs.data * out_grad;
-            rhs.grad += lhs.data * out_grad;
+            {
+                #[allow(clippy::suspicious_arithmetic_impl)]
+                let temp = lhs.grad + rhs.data * out_grad;
+                lhs.grad = temp;
+            }
+            {
+                #[allow(clippy::suspicious_arithmetic_impl)]
+                let temp = rhs.grad + lhs.data * out_grad;
+                rhs.grad = temp;
+            }
         };
 
         let out_internal = Rc::clone(&out.0);

@@ -315,9 +315,11 @@ mod tests {
     #[test]
     fn final_grad() {
         let a = Value::new(3.0);
+        assert_eq!(a.data(), 3.0);
         assert_eq!(a.grad(), 0.0);
 
         a.backward();
+        assert_eq!(a.data(), 3.0);
         assert_eq!(a.grad(), 1.0);
     }
 
@@ -329,23 +331,28 @@ mod tests {
 
         c.backward();
 
-        assert_eq!(c.data(), 7.0);
-        assert_eq!(c.grad(), 1.0);
         assert_eq!(a.data(), 3.0);
         assert_eq!(a.grad(), 1.0);
+
         assert_eq!(b.data(), 4.0);
         assert_eq!(b.grad(), 1.0);
+
+        assert_eq!(c.data(), 7.0);
+        assert_eq!(c.grad(), 1.0);
     }
 
     #[test]
     fn add_self() {
         let a = Value::new(3.0);
-        let b = a.clone() + a.clone();
+        let c = a.clone() + a.clone();
 
-        b.backward();
+        c.backward();
 
-        assert_eq!(b.data(), 6.0);
+        assert_eq!(a.data(), 3.0);
         assert_eq!(a.grad(), 2.0);
+
+        assert_eq!(c.data(), 6.0);
+        assert_eq!(c.grad(), 1.0);
     }
 
     #[test]
@@ -356,9 +363,14 @@ mod tests {
 
         c.backward();
 
-        assert_eq!(c.data(), 12.0);
+        assert_eq!(a.data(), 3.0);
         assert_eq!(a.grad(), 4.0);
+
+        assert_eq!(b.data(), 4.0);
         assert_eq!(b.grad(), 3.0);
+
+        assert_eq!(c.data(), 12.0);
+        assert_eq!(c.grad(), 1.0);
     }
 
     #[test]
@@ -368,20 +380,24 @@ mod tests {
 
         c.backward();
 
-        assert_eq!(c.data(), 9.0);
+        assert_eq!(a.data(), 3.0);
         assert_eq!(a.grad(), 6.0);
+
+        assert_eq!(c.data(), 9.0);
+        assert_eq!(c.grad(), 1.0);
     }
 
     #[test]
     fn tanh() {
         let a = Value::new(0.8814);
-        let b = a.tanh();
+        let c = a.tanh();
 
-        b.backward();
+        c.backward();
 
         assert_eq!(a.data(), 0.8814);
         assert_approx_eq!(a.grad(), 0.5, 0.1);
-        assert_approx_eq!(b.data(), 0.7071, 0.0001);
-        assert_eq!(b.grad(), 1.0);
+
+        assert_approx_eq!(c.data(), 0.7071, 0.0001);
+        assert_eq!(c.grad(), 1.0);
     }
 }

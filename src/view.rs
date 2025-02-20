@@ -27,7 +27,7 @@ pub fn print_computation_graph(root: &Value, output_path: Option<&str>) -> Strin
     for node in &nodes {
         let _node_id = graph.add_node(NodeData::new(
             format!(
-                "{{ {} | data {} | grad {} }}",
+                "{{ {} | data {:.4} | grad {:.4} }}",
                 node.label, node.data, node.grad
             ),
             "record".to_string(),
@@ -105,16 +105,16 @@ mod tests {
             print_computation_graph(&l, None),
             r#"digraph {
     rankdir="LR"
-    0 [ label = "NodeData { label: \"{ L | data -8 | grad 0 }\", shape: \"record\" }" label="{ L | data -8 | grad 0 }" shape=record]
+    0 [ label = "NodeData { label: \"{ L | data -8.0000 | grad 0.0000 }\", shape: \"record\" }" label="{ L | data -8.0000 | grad 0.0000 }" shape=record]
     1 [ label = "NodeData { label: \"*\", shape: \"circle\" }" label="*" shape=circle]
-    2 [ label = "NodeData { label: \"{ d | data 4 | grad 0 }\", shape: \"record\" }" label="{ d | data 4 | grad 0 }" shape=record]
+    2 [ label = "NodeData { label: \"{ d | data 4.0000 | grad 0.0000 }\", shape: \"record\" }" label="{ d | data 4.0000 | grad 0.0000 }" shape=record]
     3 [ label = "NodeData { label: \"+\", shape: \"circle\" }" label="+" shape=circle]
-    4 [ label = "NodeData { label: \"{ e | data -6 | grad 0 }\", shape: \"record\" }" label="{ e | data -6 | grad 0 }" shape=record]
+    4 [ label = "NodeData { label: \"{ e | data -6.0000 | grad 0.0000 }\", shape: \"record\" }" label="{ e | data -6.0000 | grad 0.0000 }" shape=record]
     5 [ label = "NodeData { label: \"*\", shape: \"circle\" }" label="*" shape=circle]
-    6 [ label = "NodeData { label: \"{ a | data 2 | grad 0 }\", shape: \"record\" }" label="{ a | data 2 | grad 0 }" shape=record]
-    7 [ label = "NodeData { label: \"{ b | data -3 | grad 0 }\", shape: \"record\" }" label="{ b | data -3 | grad 0 }" shape=record]
-    8 [ label = "NodeData { label: \"{ c | data 10 | grad 0 }\", shape: \"record\" }" label="{ c | data 10 | grad 0 }" shape=record]
-    9 [ label = "NodeData { label: \"{ f | data -2 | grad 0 }\", shape: \"record\" }" label="{ f | data -2 | grad 0 }" shape=record]
+    6 [ label = "NodeData { label: \"{ a | data 2.0000 | grad 0.0000 }\", shape: \"record\" }" label="{ a | data 2.0000 | grad 0.0000 }" shape=record]
+    7 [ label = "NodeData { label: \"{ b | data -3.0000 | grad 0.0000 }\", shape: \"record\" }" label="{ b | data -3.0000 | grad 0.0000 }" shape=record]
+    8 [ label = "NodeData { label: \"{ c | data 10.0000 | grad 0.0000 }\", shape: \"record\" }" label="{ c | data 10.0000 | grad 0.0000 }" shape=record]
+    9 [ label = "NodeData { label: \"{ f | data -2.0000 | grad 0.0000 }\", shape: \"record\" }" label="{ f | data -2.0000 | grad 0.0000 }" shape=record]
     1 -> 0 [ ]
     3 -> 2 [ ]
     5 -> 4 [ ]
@@ -144,16 +144,16 @@ mod tests {
             print_computation_graph(&l, None),
             r#"digraph {
     rankdir="LR"
-    0 [ label = "NodeData { label: \"{ L | data -8 | grad 1 }\", shape: \"record\" }" label="{ L | data -8 | grad 1 }" shape=record]
+    0 [ label = "NodeData { label: \"{ L | data -8.0000 | grad 1.0000 }\", shape: \"record\" }" label="{ L | data -8.0000 | grad 1.0000 }" shape=record]
     1 [ label = "NodeData { label: \"*\", shape: \"circle\" }" label="*" shape=circle]
-    2 [ label = "NodeData { label: \"{ d | data 4 | grad -2 }\", shape: \"record\" }" label="{ d | data 4 | grad -2 }" shape=record]
+    2 [ label = "NodeData { label: \"{ d | data 4.0000 | grad -2.0000 }\", shape: \"record\" }" label="{ d | data 4.0000 | grad -2.0000 }" shape=record]
     3 [ label = "NodeData { label: \"+\", shape: \"circle\" }" label="+" shape=circle]
-    4 [ label = "NodeData { label: \"{ e | data -6 | grad -2 }\", shape: \"record\" }" label="{ e | data -6 | grad -2 }" shape=record]
+    4 [ label = "NodeData { label: \"{ e | data -6.0000 | grad -2.0000 }\", shape: \"record\" }" label="{ e | data -6.0000 | grad -2.0000 }" shape=record]
     5 [ label = "NodeData { label: \"*\", shape: \"circle\" }" label="*" shape=circle]
-    6 [ label = "NodeData { label: \"{ a | data 2 | grad 6 }\", shape: \"record\" }" label="{ a | data 2 | grad 6 }" shape=record]
-    7 [ label = "NodeData { label: \"{ b | data -3 | grad -4 }\", shape: \"record\" }" label="{ b | data -3 | grad -4 }" shape=record]
-    8 [ label = "NodeData { label: \"{ c | data 10 | grad -2 }\", shape: \"record\" }" label="{ c | data 10 | grad -2 }" shape=record]
-    9 [ label = "NodeData { label: \"{ f | data -2 | grad 4 }\", shape: \"record\" }" label="{ f | data -2 | grad 4 }" shape=record]
+    6 [ label = "NodeData { label: \"{ a | data 2.0000 | grad 6.0000 }\", shape: \"record\" }" label="{ a | data 2.0000 | grad 6.0000 }" shape=record]
+    7 [ label = "NodeData { label: \"{ b | data -3.0000 | grad -4.0000 }\", shape: \"record\" }" label="{ b | data -3.0000 | grad -4.0000 }" shape=record]
+    8 [ label = "NodeData { label: \"{ c | data 10.0000 | grad -2.0000 }\", shape: \"record\" }" label="{ c | data 10.0000 | grad -2.0000 }" shape=record]
+    9 [ label = "NodeData { label: \"{ f | data -2.0000 | grad 4.0000 }\", shape: \"record\" }" label="{ f | data -2.0000 | grad 4.0000 }" shape=record]
     1 -> 0 [ ]
     3 -> 2 [ ]
     5 -> 4 [ ]

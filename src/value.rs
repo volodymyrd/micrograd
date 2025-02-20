@@ -30,6 +30,33 @@ impl Value {
         self
     }
 
+    pub fn tanh(&self) -> Self {
+        let data = self.0.borrow().data.tanh();
+        let lhs_internal = Rc::clone(&self.0);
+
+        let out = Self::new_internal(
+            data,
+            0.0,
+            vec![Value(lhs_internal)],
+            None,
+            Some(String::from("tanh")),
+        );
+
+        let lhs_internal = Rc::clone(&self.0);
+        let out_internal = Rc::clone(&out.0);
+
+        let backward = move || {
+            let mut lhs = lhs_internal.borrow_mut();
+            let out_grad = out_internal.borrow().grad;
+            lhs.grad += (1.0 - data.powf(2.0)) * out_grad;
+        };
+
+        let out_internal = Rc::clone(&out.0);
+        let mut out_internal_mut = out_internal.borrow_mut();
+        out_internal_mut.backward = Some(Rc::new(RefCell::new(backward)));
+        out
+    }
+
     pub fn backward(&self) {
         let mut topo = vec![];
         let mut visited = HashSet::new();
@@ -130,19 +157,31 @@ impl Add for Value {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
+        let is_self = Rc::ptr_eq(&self.0, &rhs.0);
+
         let data = self.0.borrow().data + rhs.0.borrow().data;
         let lhs_internal = Rc::clone(&self.0);
         let rhs_internal = Rc::clone(&rhs.0);
 
-        let out = Self::new_internal(data, 0.0, vec![self, rhs], None, Some(String::from("+")));
+        let mut prev = vec![self];
+        if !is_self {
+            prev.push(rhs);
+        }
+
+        let out = Self::new_internal(data, 0.0, prev, None, Some(String::from("+")));
         let out_internal = Rc::clone(&out.0);
 
         let backward = move || {
             let mut lhs = lhs_internal.borrow_mut();
-            let mut rhs = rhs_internal.borrow_mut();
             let out_grad = out_internal.borrow().grad;
             lhs.grad += out_grad;
-            rhs.grad += out_grad;
+
+            if is_self {
+                lhs.grad *= 2.0;
+            } else {
+                let mut rhs = rhs_internal.borrow_mut();
+                rhs.grad += out_grad;
+            }
         };
 
         let out_internal = Rc::clone(&out.0);
@@ -156,26 +195,42 @@ impl Mul for Value {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {
+        let is_self = Rc::ptr_eq(&self.0, &rhs.0);
+
         let data = self.0.borrow().data * rhs.0.borrow().data;
         let lhs_internal = Rc::clone(&self.0);
         let rhs_internal = Rc::clone(&rhs.0);
 
-        let out = Self::new_internal(data, 0.0, vec![self, rhs], None, Some(String::from("*")));
+        let mut prev = vec![self];
+        if !is_self {
+            prev.push(rhs);
+        }
+
+        let out = Self::new_internal(data, 0.0, prev, None, Some(String::from("*")));
         let out_internal = Rc::clone(&out.0);
 
         let backward = move || {
             let mut lhs = lhs_internal.borrow_mut();
-            let mut rhs = rhs_internal.borrow_mut();
+            let rhs_data = if is_self {
+                lhs.data
+            } else {
+                rhs_internal.borrow_mut().data
+            };
             let out_grad = out_internal.borrow().grad;
             {
                 #[allow(clippy::suspicious_arithmetic_impl)]
-                let temp = lhs.grad + rhs.data * out_grad;
+                let temp = lhs.grad + rhs_data * out_grad;
                 lhs.grad = temp;
             }
-            {
-                #[allow(clippy::suspicious_arithmetic_impl)]
-                let temp = rhs.grad + lhs.data * out_grad;
-                rhs.grad = temp;
+            if is_self {
+                lhs.grad *= 2.0;
+            } else {
+                let mut rhs = rhs_internal.borrow_mut();
+                {
+                    #[allow(clippy::suspicious_arithmetic_impl)]
+                    let temp = rhs.grad + lhs.data * out_grad;
+                    rhs.grad = temp;
+                }
             }
         };
 
@@ -253,4 +308,80 @@ impl InternalValue {
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use crate::value::Value;
+    use assert_approx_eq::assert_approx_eq;
+
+    #[test]
+    fn final_grad() {
+        let a = Value::new(3.0);
+        assert_eq!(a.grad(), 0.0);
+
+        a.backward();
+        assert_eq!(a.grad(), 1.0);
+    }
+
+    #[test]
+    fn add() {
+        let a = Value::new(3.0);
+        let b = Value::new(4.0);
+        let c = a.clone() + b.clone();
+
+        c.backward();
+
+        assert_eq!(c.data(), 7.0);
+        assert_eq!(c.grad(), 1.0);
+        assert_eq!(a.data(), 3.0);
+        assert_eq!(a.grad(), 1.0);
+        assert_eq!(b.data(), 4.0);
+        assert_eq!(b.grad(), 1.0);
+    }
+
+    #[test]
+    fn add_self() {
+        let a = Value::new(3.0);
+        let b = a.clone() + a.clone();
+
+        b.backward();
+
+        assert_eq!(b.data(), 6.0);
+        assert_eq!(a.grad(), 2.0);
+    }
+
+    #[test]
+    fn mul() {
+        let a = Value::new(3.0);
+        let b = Value::new(4.0);
+        let c = a.clone() * b.clone();
+
+        c.backward();
+
+        assert_eq!(c.data(), 12.0);
+        assert_eq!(a.grad(), 4.0);
+        assert_eq!(b.grad(), 3.0);
+    }
+
+    #[test]
+    fn mul_self() {
+        let a = Value::new(3.0);
+        let c = a.clone() * a.clone();
+
+        c.backward();
+
+        assert_eq!(c.data(), 9.0);
+        assert_eq!(a.grad(), 6.0);
+    }
+
+    #[test]
+    fn tanh() {
+        let a = Value::new(0.8814);
+        let b = a.tanh();
+
+        b.backward();
+
+        assert_eq!(a.data(), 0.8814);
+        assert_approx_eq!(a.grad(), 0.5, 0.1);
+        assert_approx_eq!(b.data(), 0.7071, 0.0001);
+        assert_eq!(b.grad(), 1.0);
+    }
+}

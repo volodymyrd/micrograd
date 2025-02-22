@@ -152,7 +152,10 @@ impl Display for Value {
         write!(f, "data: {}, grad: {}", int_val.data, int_val.grad)
     }
 }
-
+/// out = self + rfh.
+///
+/// self.grad = dL/d(self) = dL/d(out) * d(out)/d(self)
+/// = out.grad * d(self + rhf)/d(self) = out.grad * (1+0) = out.grad
 impl Add for Value {
     type Output = Self;
 
@@ -191,6 +194,10 @@ impl Add for Value {
     }
 }
 
+/// out = self * rfh.
+///
+/// self.grad = dL/d(self) = dL/d(out) * d(out)/d(self)
+/// = out.grad * d(self * rhf)/d(self) = out.grad * rhf
 impl Mul for Value {
     type Output = Self;
 
@@ -216,21 +223,14 @@ impl Mul for Value {
             } else {
                 rhs_internal.borrow_mut().data
             };
+
             let out_grad = out_internal.borrow().grad;
-            {
-                #[allow(clippy::suspicious_arithmetic_impl)]
-                let temp = lhs.grad + rhs_data * out_grad;
-                lhs.grad = temp;
-            }
+            lhs.grad += rhs_data * out_grad;
+
             if is_self {
                 lhs.grad *= 2.0;
             } else {
-                let mut rhs = rhs_internal.borrow_mut();
-                {
-                    #[allow(clippy::suspicious_arithmetic_impl)]
-                    let temp = rhs.grad + lhs.data * out_grad;
-                    rhs.grad = temp;
-                }
+                rhs_internal.borrow_mut().grad += lhs.data * out_grad;
             }
         };
 

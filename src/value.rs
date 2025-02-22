@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::fmt::{Debug, Display, Formatter, Result};
-use std::ops::{Add, Mul};
+use std::ops::{Add, Mul, Sub};
 use std::rc::Rc;
 use uuid::Uuid;
 
@@ -182,8 +182,51 @@ impl Add for Value {
             if is_self {
                 lhs.grad *= 2.0;
             } else {
-                let mut rhs = rhs_internal.borrow_mut();
-                rhs.grad += out_grad;
+                rhs_internal.borrow_mut().grad += out_grad;
+            }
+        };
+
+        let out_internal = Rc::clone(&out.0);
+        let mut out_internal_mut = out_internal.borrow_mut();
+        out_internal_mut.backward = Some(Rc::new(RefCell::new(backward)));
+        out
+    }
+}
+
+/// out = self - rfh.
+///
+/// self.grad = dL/d(self) = dL/d(out) * d(out)/d(self)
+/// = out.grad * d(self - rhf)/d(self) = out.grad * (1+0) = out.grad
+///
+/// rhs.grad = dL/d(rhs) = dL/d(out) * d(out)/d(rhs)
+/// = out.grad * d(self - rhf)/d(rhs) = out.grad * (0-1) = -out.grad
+impl Sub for Value {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        let is_self = Rc::ptr_eq(&self.0, &rhs.0);
+
+        let data = self.0.borrow().data - rhs.0.borrow().data;
+        let lhs_internal = Rc::clone(&self.0);
+        let rhs_internal = Rc::clone(&rhs.0);
+
+        let mut prev = vec![self];
+        if !is_self {
+            prev.push(rhs);
+        }
+
+        let out = Self::new_internal(data, 0.0, prev, None, Some(String::from("-")));
+        let out_internal = Rc::clone(&out.0);
+
+        let backward = move || {
+            let mut lhs = lhs_internal.borrow_mut();
+            let out_grad = out_internal.borrow().grad;
+            lhs.grad += out_grad;
+
+            if is_self {
+                lhs.grad *= 0.0;
+            } else {
+                rhs_internal.borrow_mut().grad -= out_grad;
             }
         };
 
@@ -352,6 +395,38 @@ mod tests {
         assert_eq!(a.grad(), 2.0);
 
         assert_eq!(c.data(), 6.0);
+        assert_eq!(c.grad(), 1.0);
+    }
+
+    #[test]
+    fn sub() {
+        let a = Value::new(3.0);
+        let b = Value::new(4.0);
+        let c = a.clone() - b.clone();
+
+        c.backward();
+
+        assert_eq!(a.data(), 3.0);
+        assert_eq!(a.grad(), 1.0);
+
+        assert_eq!(b.data(), 4.0);
+        assert_eq!(b.grad(), -1.0);
+
+        assert_eq!(c.data(), -1.0);
+        assert_eq!(c.grad(), 1.0);
+    }
+
+    #[test]
+    fn sub_self() {
+        let a = Value::new(3.0);
+        let c = a.clone() - a.clone();
+
+        c.backward();
+
+        assert_eq!(a.data(), 3.0);
+        assert_eq!(a.grad(), 0.0);
+
+        assert_eq!(c.data(), 0.0);
         assert_eq!(c.grad(), 1.0);
     }
 

@@ -18,6 +18,10 @@ impl Neuron {
         )
     }
 
+    fn parameters(&self) -> Vec<Value> {
+        [&self.weights[..], &[self.bias.clone()]].concat()
+    }
+
     fn new_internal(weights: Vec<Value>, bias: Value) -> Self {
         Self { weights, bias }
     }
@@ -47,6 +51,20 @@ mod tests {
     use crate::neuron::Neuron;
     use crate::value::Value;
     use assert_approx_eq::assert_approx_eq;
+
+    #[test]
+    fn params() {
+        let neuron = Neuron::new_internal(vec![Value::new(0.2), Value::new(-0.5)], Value::new(0.1));
+
+        assert_eq!(
+            neuron
+                .parameters()
+                .iter()
+                .map(|e| e.data())
+                .collect::<Vec<_>>(),
+            vec![0.2, -0.5, 0.1]
+        );
+    }
 
     #[test]
     fn forward() {

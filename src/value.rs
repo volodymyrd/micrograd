@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::fmt::{Debug, Display, Formatter, Result};
+use std::iter::Sum;
 use std::ops::{Add, Mul, Sub};
 use std::rc::Rc;
 use uuid::Uuid;
@@ -152,6 +153,18 @@ impl Display for Value {
         write!(f, "data: {}, grad: {}", int_val.data, int_val.grad)
     }
 }
+
+impl Sum for Value {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        let mut sum = Value::new(0.0);
+        for val in iter {
+            let label = val.label().clone();
+            sum = (sum.with_label(&label) + val).with_label(&label);
+        }
+        sum.with_label("y")
+    }
+}
+
 /// out = self + rfh.
 ///
 /// self.grad = dL/d(self) = dL/d(out) * d(out)/d(self)

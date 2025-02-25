@@ -1,6 +1,8 @@
+use crate::neuron::Neuron;
 use crate::value::Value;
 use crate::view::print_computation_graph;
 
+mod neuron;
 mod value;
 mod view;
 
@@ -27,4 +29,10 @@ fn main() {
     let o = n.tanh().with_label("o");
     o.backward();
     println!("{}", print_computation_graph(&o, Some("micrograd2.svg")));
+
+    let n = Neuron::new(1);
+    println!("{n:?}");
+    let f = n.forward(&[Value::new(1.5)]);
+    f.backward();
+    println!("{}", print_computation_graph(&f, Some("forward.svg")));
 }

@@ -29,10 +29,16 @@ impl Display for MlpStat {
 }
 
 impl Mlp {
-    pub fn new(nin: usize, nouts: Vec<usize>) -> Self {
+    pub fn new(nin: usize, nouts: Vec<usize>, activation_last_layer: bool) -> Self {
         let sz = [&[nin], &nouts[..]].concat();
         let layers = (0..nouts.len())
-            .map(|i| Layer::new(sz[i], sz[i + 1]))
+            .map(|i| {
+                Layer::new(
+                    sz[i],
+                    sz[i + 1],
+                    activation_last_layer || i != nouts.len() - 1,
+                )
+            })
             .collect();
         Self { layers }
     }
@@ -116,7 +122,7 @@ mod tests {
 
     #[test]
     fn test_mlp_new() {
-        let mlp = Mlp::new(3, vec![4, 4, 1]);
+        let mlp = Mlp::new(3, vec![4, 4, 1], true);
         assert_eq!(mlp.layers.len(), 3);
         assert_eq!(mlp.layers[0].len(), 4);
         assert_eq!(mlp.layers[1].len(), 4);
@@ -125,7 +131,7 @@ mod tests {
 
     #[test]
     fn test_mlp_forward() {
-        let mlp = Mlp::new(3, vec![4, 4, 1]);
+        let mlp = Mlp::new(3, vec![4, 4, 1], true);
         let input = vec![Value::new(0.1), Value::new(0.2), Value::new(0.3)];
         let output = mlp.forward(input);
         assert_eq!(output.len(), 1);
@@ -133,7 +139,7 @@ mod tests {
 
     #[test]
     fn test_mlp_forward_with_different_dimensions() {
-        let mlp = Mlp::new(2, vec![3, 1]);
+        let mlp = Mlp::new(2, vec![3, 1], true);
         let input = vec![Value::new(0.5), Value::new(0.8)];
         let output = mlp.forward(input);
         assert_eq!(output.len(), 1);
@@ -141,7 +147,7 @@ mod tests {
 
     #[test]
     fn test_mlp_train() {
-        let mlp = Mlp::new(3, vec![4, 4, 1]);
+        let mlp = Mlp::new(3, vec![4, 4, 1], true);
         let xs = vec![
             vec![2.0, 3.0, -1.0],
             vec![3.0, -1.0, 0.5],
@@ -154,7 +160,7 @@ mod tests {
 
     #[test]
     fn test_train_small_dataset() {
-        let mlp = Mlp::new(2, vec![3, 1]);
+        let mlp = Mlp::new(2, vec![3, 1], true);
         let xs = vec![
             vec![0.0, 0.0],
             vec![0.0, 1.0],
@@ -167,7 +173,7 @@ mod tests {
 
     #[test]
     fn test_stat() {
-        let mlp = Mlp::new(3, vec![4, 4, 1]);
+        let mlp = Mlp::new(3, vec![4, 4, 1], true);
         let stat = mlp.stat();
         assert_eq!(stat.num_layers, 3);
         assert_eq!(stat.num_neurons, 9);
@@ -177,7 +183,7 @@ mod tests {
         // 32 weights + 9 biases
         assert_eq!(stat.num_parameters, 41);
 
-        let mlp = Mlp::new(2, vec![3, 1]);
+        let mlp = Mlp::new(2, vec![3, 1], true);
         let stat = mlp.stat();
         assert_eq!(stat.num_layers, 2);
         assert_eq!(stat.num_neurons, 4);

@@ -33,11 +33,18 @@ fn main() {
     o.backward();
     println!("{}", print_computation_graph(&o, Some("micrograd2.svg")));
 
-    let n = Neuron::new(1);
+    let n = Neuron::new(1, true);
     println!("{n:?}");
     let f = n.forward(&[Value::new(1.5)]);
     f.backward();
     println!("{}", print_computation_graph(&f, Some("neuron.svg")));
+
+    // regression
+    let mlp = Mlp::new(1, vec![1, 1], false);
+    let y = mlp.forward(vec![Value::new(1.0)]);
+    y[0].backward();
+    println!("regression stat: {}", mlp.stat());
+    println!("{}", print_computation_graph(&y[0], Some("regression.svg")));
 
     let xs = vec![
         vec![2.0, 3.0, -1.0],
@@ -47,7 +54,7 @@ fn main() {
     ];
     let ys = vec![1.0, -1.0, -1.0, 1.0];
 
-    let mlp = Mlp::new(3, vec![4, 4, 1]);
+    let mlp = Mlp::new(3, vec![4, 4, 1], true);
     println!("{}", mlp.stat());
     mlp.train(xs, ys, 20, 0.1);
     let pred = mlp.forward(vec![2.0, 3.0, -1.0].into_iter().map(Value::new).collect());

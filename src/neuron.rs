@@ -5,16 +5,18 @@ use rand::Rng;
 pub struct Neuron {
     weights: Vec<Value>,
     bias: Value,
+    activation: bool,
 }
 
 impl Neuron {
-    pub fn new(nin: usize) -> Self {
+    pub fn new(nin: usize, activation: bool) -> Self {
         let mut rng = rand::rng();
         Self::new_internal(
             (0..nin)
                 .map(|_| Value::new(rng.random_range(-1.0..1.0)))
                 .collect(),
             Value::new(rng.random_range(-1.0..1.0)),
+            activation,
         )
     }
 
@@ -22,8 +24,12 @@ impl Neuron {
         [&self.weights[..], &[self.bias.clone()]].concat()
     }
 
-    fn new_internal(weights: Vec<Value>, bias: Value) -> Self {
-        Self { weights, bias }
+    fn new_internal(weights: Vec<Value>, bias: Value, activation: bool) -> Self {
+        Self {
+            weights,
+            bias,
+            activation,
+        }
     }
 
     pub fn forward(&self, x: &[Value]) -> Value {
@@ -39,10 +45,12 @@ impl Neuron {
             })
             .sum();
 
-        (v + self.bias.clone().with_label("b"))
-            .with_label("z")
-            .tanh()
-            .with_label("a")
+        let z = (v + self.bias.clone().with_label("b")).with_label("z");
+        if self.activation {
+            z.tanh().with_label("a")
+        } else {
+            z.with_label("a")
+        }
     }
 
     pub fn zero_grad(&self) {
@@ -64,7 +72,7 @@ mod tests {
 
     #[test]
     fn rand() {
-        let neuron = Neuron::new(2);
+        let neuron = Neuron::new(2, true);
         for p in neuron.parameters() {
             assert!(
                 p.data() > -1.0 && p.data() < 1.0,
@@ -76,7 +84,11 @@ mod tests {
 
     #[test]
     fn params() {
-        let neuron = Neuron::new_internal(vec![Value::new(0.2), Value::new(-0.5)], Value::new(0.1));
+        let neuron = Neuron::new_internal(
+            vec![Value::new(0.2), Value::new(-0.5)],
+            Value::new(0.1),
+            true,
+        );
 
         assert_eq!(
             neuron
@@ -90,7 +102,11 @@ mod tests {
 
     #[test]
     fn forward() {
-        let neuron = Neuron::new_internal(vec![Value::new(0.2), Value::new(-0.5)], Value::new(0.1));
+        let neuron = Neuron::new_internal(
+            vec![Value::new(0.2), Value::new(-0.5)],
+            Value::new(0.1),
+            true,
+        );
         let x = vec![Value::new(0.3), Value::new(0.7)]; // Input values matching the mock!
         let expected_output = (0.2f64 * 0.3f64 + (-0.5f64) * 0.7f64 + 0.1f64).tanh();
 

@@ -7,8 +7,8 @@ pub struct Layer {
 }
 
 impl Layer {
-    pub fn new(nin: usize, nout: usize) -> Self {
-        let neurons = (0..nout).map(|_| Neuron::new(nin)).collect();
+    pub fn new(nin: usize, nout: usize, activation: bool) -> Self {
+        let neurons = (0..nout).map(|_| Neuron::new(nin, activation)).collect();
         Self { neurons }
     }
 
@@ -41,7 +41,10 @@ mod tests {
     fn parameters() {
         for nin in 50..55 {
             for nout in 90..100 {
-                assert_eq!(Layer::new(nin, nout).parameters().len(), nout * (nin + 1));
+                assert_eq!(
+                    Layer::new(nin, nout, true).parameters().len(),
+                    nout * (nin + 1)
+                );
             }
         }
     }

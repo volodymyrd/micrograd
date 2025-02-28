@@ -31,6 +31,43 @@ impl Value {
         self
     }
 
+    pub fn zero_grad(&self) {
+        self.0.borrow_mut().grad = 0.0;
+    }
+
+    pub fn update(&self, learning_rate: f64) {
+        let grad = self.0.borrow().grad;
+        self.0.borrow_mut().data += -learning_rate * grad;
+    }
+
+    pub fn pow(&self, degree: &Value) -> Self {
+        let degree = degree.0.borrow().data;
+        let data = self.0.borrow().data.powf(degree);
+        let lhs_internal = Rc::clone(&self.0);
+
+        let out = Self::new_internal(
+            data,
+            0.0,
+            vec![Value(lhs_internal)],
+            None,
+            Some(format!("**{}", degree)),
+        );
+
+        let lhs_internal = Rc::clone(&self.0);
+        let out_internal = Rc::clone(&out.0);
+
+        let backward = move || {
+            let mut lhs = lhs_internal.borrow_mut();
+            let out_grad = out_internal.borrow().grad;
+            lhs.grad += degree * lhs.data.powf(degree - 1.0) * out_grad;
+        };
+
+        let out_internal = Rc::clone(&out.0);
+        let mut out_internal_mut = out_internal.borrow_mut();
+        out_internal_mut.backward = Some(Rc::new(RefCell::new(backward)));
+        out
+    }
+
     pub fn tanh(&self) -> Self {
         let data = self.0.borrow().data.tanh();
         let lhs_internal = Rc::clone(&self.0);
@@ -499,6 +536,20 @@ mod tests {
 
         assert_eq!(f.data(), -6.0);
         assert_eq!(f.grad(), 1.0);
+    }
+
+    #[test]
+    fn pow() {
+        let a = Value::new(5.0);
+        let c = a.pow(&Value::new(3.0));
+
+        c.backward();
+
+        assert_eq!(a.data(), 5.0);
+        assert_eq!(a.grad(), 75.0);
+
+        assert_eq!(c.data(), 125.0);
+        assert_eq!(c.grad(), 1.0);
     }
 
     #[test]

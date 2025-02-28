@@ -18,7 +18,7 @@ impl Neuron {
         )
     }
 
-    fn parameters(&self) -> Vec<Value> {
+    pub fn parameters(&self) -> Vec<Value> {
         [&self.weights[..], &[self.bias.clone()]].concat()
     }
 
@@ -44,6 +44,16 @@ impl Neuron {
             .tanh()
             .with_label("a")
     }
+
+    pub fn zero_grad(&self) {
+        self.bias.zero_grad();
+        self.weights.iter().for_each(|w| w.zero_grad());
+    }
+
+    pub fn update(&self, learning_rate: f64) {
+        self.bias.update(learning_rate);
+        self.weights.iter().for_each(|w| w.update(learning_rate));
+    }
 }
 
 #[cfg(test)]
@@ -51,6 +61,18 @@ mod tests {
     use crate::neuron::Neuron;
     use crate::value::Value;
     use assert_approx_eq::assert_approx_eq;
+
+    #[test]
+    fn rand() {
+        let neuron = Neuron::new(2);
+        for p in neuron.parameters() {
+            assert!(
+                p.data() > -1.0 && p.data() < 1.0,
+                "Value {} is out of range!",
+                p.data()
+            );
+        }
+    }
 
     #[test]
     fn params() {

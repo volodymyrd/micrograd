@@ -1,6 +1,11 @@
+use crate::mlp::Mlp;
+use crate::neuron::Neuron;
 use crate::value::Value;
 use crate::view::print_computation_graph;
 
+mod layer;
+mod mlp;
+mod neuron;
 mod value;
 mod view;
 
@@ -27,4 +32,25 @@ fn main() {
     let o = n.tanh().with_label("o");
     o.backward();
     println!("{}", print_computation_graph(&o, Some("micrograd2.svg")));
+
+    let n = Neuron::new(1);
+    println!("{n:?}");
+    let f = n.forward(&[Value::new(1.5)]);
+    f.backward();
+    println!("{}", print_computation_graph(&f, Some("neuron.svg")));
+
+    let xs = vec![
+        vec![2.0, 3.0, -1.0],
+        vec![3.0, -1.0, 0.5],
+        vec![0.5, 1.0, 1.0],
+        vec![1.0, 1.0, -1.0],
+    ];
+    let ys = vec![1.0, -1.0, -1.0, 1.0];
+
+    let mlp = Mlp::new(3, vec![4, 4, 1]);
+    println!("{}", mlp.stat());
+    mlp.train(xs, ys, 20, 0.1);
+    let pred = mlp.forward(vec![2.0, 3.0, -1.0].into_iter().map(Value::new).collect());
+    println!("Prediction: {pred:?}");
+    println!("{}", print_computation_graph(&pred[0], Some("pred.svg")));
 }

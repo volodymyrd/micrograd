@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::fmt::{Debug, Display, Formatter, Result};
+use std::iter::Sum;
 use std::ops::{Add, Mul, Sub};
 use std::rc::Rc;
 use uuid::Uuid;
@@ -28,6 +29,43 @@ impl Value {
     pub fn with_label(self, label: &str) -> Value {
         self.0.borrow_mut().label = Some(label.to_string());
         self
+    }
+
+    pub fn zero_grad(&self) {
+        self.0.borrow_mut().grad = 0.0;
+    }
+
+    pub fn update(&self, learning_rate: f64) {
+        let grad = self.0.borrow().grad;
+        self.0.borrow_mut().data += -learning_rate * grad;
+    }
+
+    pub fn pow(&self, degree: &Value) -> Self {
+        let degree = degree.0.borrow().data;
+        let data = self.0.borrow().data.powf(degree);
+        let lhs_internal = Rc::clone(&self.0);
+
+        let out = Self::new_internal(
+            data,
+            0.0,
+            vec![Value(lhs_internal)],
+            None,
+            Some(format!("**{}", degree)),
+        );
+
+        let lhs_internal = Rc::clone(&self.0);
+        let out_internal = Rc::clone(&out.0);
+
+        let backward = move || {
+            let mut lhs = lhs_internal.borrow_mut();
+            let out_grad = out_internal.borrow().grad;
+            lhs.grad += degree * lhs.data.powf(degree - 1.0) * out_grad;
+        };
+
+        let out_internal = Rc::clone(&out.0);
+        let mut out_internal_mut = out_internal.borrow_mut();
+        out_internal_mut.backward = Some(Rc::new(RefCell::new(backward)));
+        out
     }
 
     pub fn tanh(&self) -> Self {
@@ -152,6 +190,18 @@ impl Display for Value {
         write!(f, "data: {}, grad: {}", int_val.data, int_val.grad)
     }
 }
+
+impl Sum for Value {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        let mut sum = Value::new(0.0);
+        for val in iter {
+            let label = val.label().clone();
+            sum = (sum.with_label(&label) + val).with_label(&label);
+        }
+        sum.with_label("y")
+    }
+}
+
 /// out = self + rfh.
 ///
 /// self.grad = dL/d(self) = dL/d(out) * d(out)/d(self)
@@ -486,6 +536,20 @@ mod tests {
 
         assert_eq!(f.data(), -6.0);
         assert_eq!(f.grad(), 1.0);
+    }
+
+    #[test]
+    fn pow() {
+        let a = Value::new(5.0);
+        let c = a.pow(&Value::new(3.0));
+
+        c.backward();
+
+        assert_eq!(a.data(), 5.0);
+        assert_eq!(a.grad(), 75.0);
+
+        assert_eq!(c.data(), 125.0);
+        assert_eq!(c.grad(), 1.0);
     }
 
     #[test]
